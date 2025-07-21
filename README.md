@@ -37,10 +37,10 @@
 ## 🖼️ **Architecture Overview**
 
 ### 🔷 **Overall System Architecture**
-![Overview Architecture](docs/overview_architecture_placeholder.png)
+![Overview Architecture](docs/Figure 1.png)
 
 ### 🟣 **Detailed Architecture with Module Breakdown**
-![Detailed Architecture](docs/detailed_architecture_placeholder.png)
+![Detailed Architecture](docs/Figure 2.png)
 
 Module references in [`models/`](models/):
 - `prompt_injected_sign_transformer.py` → **PI-ST+** (Prompt-Injected Sign Transformer)
