@@ -1,84 +1,127 @@
 
-# UniSign-Prompt: Signer Bias Unlearning and Multimodal Prompt Tuning for Cross-Lingual Sign Language Translation
+# 🚀 **UniSign-Prompt: Signer Bias Unlearning via Multimodal Prompt Tuning for Cross-Lingual Sign Language Translation**
 
-UniSign-Prompt introduces a novel architecture for continuous sign language translation (SLT), designed to mitigate signer bias and improve cross-lingual generalization. The model integrates Prompt-Injected Sign Transformer (PI-ST+), Hierarchical Cross-Lingual Prompt Bank (H-CLPB), Temporal-Aware Prompt Injection (TAP), Prompt Routing Mechanism (PRM), and Prompt Forgetting Module (PFM).
+---
 
-## Architecture Overview
+## 🧐 Overview
 
-- **PI-ST+**: Visual encoder with temporal prompt injection and prompt-centric residual connections.
-- **H-CLPB**: Hierarchical prompts conditioned on language family and signer identity.
-- **TAP**: Segment-specific temporal prompt generation.
-- **PRM**: Gumbel-softmax based prompt routing.
-- **PFM**: Signer bias unlearning via adversarial classifier and decorrelation.
-- **Dual-Branch Decoder**: Joint gloss and text decoding.
+**UniSign-Prompt** proposes a novel **prompt-injected architecture** for **continuous sign language translation (SLT)** focused on:
+- ❗ **Signer Bias Unlearning**: minimizes signer-dependent overfitting through adversarial forgetting.
+- 🌐 **Cross-Lingual Generalization**: enables robust transfer across American Sign Language (ASL), German Sign Language (DGS), and Indian Sign Language (ISL).
+- ⚡ **Low-Resource Robustness**: superior zero-shot and few-shot ISL performance.
 
-## Datasets
+---
 
-- **How2Sign (ASL)**
-- **RWTH-PHOENIX14T (DGS)**
-- **ISL-CSLTR (ISL zero-shot and few-shot splits)**
+## 🎁 **Key Highlights**
 
-### Expected Dataset Structure
-All datasets are organized inside the `datasets/` folder with metadata CSV files and vocabulary text files:
-```
+✅ **Multimodal Prompt Tuning** using **PI-ST+**, **H-CLPB**, **TAP**, and **PRM** to condition on signer identity, language family, and temporal segments.
+
+✅ **Explicit Signer Bias Unlearning** via **Prompt Forgetting Module (PFM)** applying adversarial forgetting and decorrelation on signer prompts.
+
+✅ **Cross-Lingual Transfer Objective** with **H-CLPB**, enabling scalable alignment across structurally divergent sign languages.
+
+✅ **Temporal-Aware Prompt Adaptation** using **TAP** to handle long sign sequences via temporally adaptive prompts.
+
+✅ **Dynamic Prompt Selection** via **PRM**, reducing inference overhead through Gumbel-softmax-based routing.
+
+✅ **Dual-Branch Decoder** outputs **gloss** and **text** sequences.
+
+✅ **Multi-Objective Forgetting Loss (MOF Loss)** optimizing translation, forgetting, alignment, sparsity, and smoothness.
+
+✅ **Consistent Outperformance** on ASL (How2Sign), DGS (RWTH-PHOENIX14T), and ISL (ISL-CSLTR).
+
+---
+
+## 🖼️ **Architecture Overview**
+
+### 🔷 **Overall System Architecture**
+![Overview Architecture](docs/overview_architecture_placeholder.png)
+
+### 🟣 **Detailed Architecture with Module Breakdown**
+![Detailed Architecture](docs/detailed_architecture_placeholder.png)
+
+Module references in [`models/`](models/):
+- `prompt_injected_sign_transformer.py` → **PI-ST+** (Prompt-Injected Sign Transformer)
+- `hierarchical_prompt_bank.py` → **H-CLPB**
+- `tap_module.py` → **TAP**
+- `prompt_routing_mechanism.py` → **PRM**
+- `prompt_forgetting_module.py` → **PFM**
+- `decoder.py` → **Dual-Branch Decoder**
+- `unisign_prompt.py` → Overall **UniSign-Prompt** model integration
+
+---
+
+## 📂 **Dataset Structure**
+
+Folder structure under `datasets/`:
+
+```plaintext
 datasets/
-├── how2sign_train_meta.csv, how2sign_val_meta.csv, how2sign_test_meta.csv
-├── how2sign_src_vocab.txt, how2sign_trg_vocab.txt
-├── rwth_train_meta.csv, rwth_val_meta.csv, rwth_test_meta.csv
-├── rwth_src_vocab.txt, rwth_trg_vocab.txt
-├── isl_train_meta.csv, isl_val_meta.csv, isl_test_meta.csv
-├── isl_zero_shot_meta.csv, isl_few_shot_train_meta.csv, isl_few_shot_val_meta.csv, isl_few_shot_test_meta.csv
-├── isl_src_vocab.txt, isl_trg_vocab.txt
+├── how2sign_[train/val/test]_meta.csv
+├── rwth_[train/val/test]_meta.csv
+├── isl_[train/val/test/zero_shot/few_shot_*]_meta.csv
+├── [language]_src_vocab.txt
+├── [language]_trg_vocab.txt
 ```
 
-## Setup
+| Dataset | Language | Train/Val/Test | Signers | Gloss Vocab | Target Language |
+| -------- | -------- | --------------- | ------- | ------------ | ---------------- |
+| How2Sign | ASL | 29k/3k/3k | 11 | 16k | English |
+| RWTH-PHOENIX14T | DGS | 7096/519/642 | 9 | 1066 | German |
+| ISL-CSLTR | ISL | 500/100/100 | 7 | 1036 | English |
+| ISL Zero-Shot | ISL | 0/100/100 | 7 | 1036 | English |
+| ISL Few-Shot | ISL | 50/100/100 | 7 | 1036 | English |
+
+---
+
+## ⚙️ **Setup**
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Training
-
-Specify the dataset inside `train.py` by setting:
-```python
-DATASET = "How2Sign"
-```
-
-Run training:
+Training:
 ```bash
-python train.py
+python train.py --dataset How2Sign
 ```
 
-The best checkpoint will be saved in:
-```
-checkpoints/{DATASET}_UniSignPrompt_best.pth
-```
-e.g., `checkpoints/How2Sign_UniSignPrompt_best.pth`
-
-## Evaluation (BLEU, WER, Cross-Lingual, Signer Accuracy)
-
+Evaluation:
 ```bash
 python evaluate_extended.py --dataset ISL-CSLTR --split zero_shot --checkpoint checkpoints/ISL-CSLTR_UniSignPrompt_best.pth
 ```
 
-## Inference on Single Video
+---
 
-Coming soon via `inference_demo.ipynb`
+## 🏆 **Results Summary**
 
-## Results Summary
+### 🔵 **Translation Quality (BLEU-4 ↑, WER ↓)**
 
-| Dataset         | BLEU-4 ↑          | WER ↓ | Signer Acc ↓ | Params ↓ | Latency ↓    |
-|-----------------|-------------------|-------|--------------|----------|--------------|
-| ASL             | +1.1 vs baselines | -1.3  | -19.4%       | -17.9%   | -4.2 ms/frame |
-| DGS             | +1.1              | -3.3  | -19.5%       | -17.9%   | -3.9 ms/frame |
-| ISL (Zero-shot) | +0.7              | -1.6  | -18.2%       | -23.2%   | -2.9 ms/frame |
-| ISL (Few-shot)  | +0.7              | -1.9  | -17.2%       | -23.2%   | -2.9 ms/frame |
+| Dataset | BLEU-4 ↑ | WER ↓ |
+| -------- | -------- | ------ |
+| ASL | 23.0 | 38.4 |
+| DGS | 22.3 | 37.4 |
+| ISL Zero-Shot | 14.5 | 46.0 |
+| ISL Few-Shot | 17.0 | 43.4 |
 
-## License
+### 🟣 **Signer Bias Unlearning**
 
-MIT License
+| Dataset | Signer Accuracy ↓ | BLEU-4 Gap ↓ |
+| -------- | ----------------- | ------------- |
+| DGS | 13.4% | 1.4 |
+| ISL Zero-Shot | 18.6% | 1.9 |
+| ISL Few-Shot | 16.7% | 1.5 |
 
-## Citation
+### 🟢 **Efficiency**
+
+| Dataset | Params ↓ | Latency ↓ |
+| -------- | -------- | --------- |
+| ASL | 49.6M | 58.7 ms/frame |
+| DGS | 49.6M | 55.2 ms/frame |
+| ISL | 49.6M | 53.8 ms/frame |
+
+---
+
+## 📜 **Citation**
 
 ```bibtex
 @article{unistprompt2025,
@@ -87,3 +130,9 @@ MIT License
   year={2025}
 }
 ```
+
+---
+
+## 📝 **License**
+
+MIT License
