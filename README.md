@@ -6,9 +6,9 @@
 ## 🧐 Overview
 
 **UniSign-Prompt** proposes a novel **prompt-injected architecture** for **continuous sign language translation (SLT)** focused on:
-- ❗ **Signer Bias Unlearning**: minimizes signer-dependent overfitting through adversarial forgetting.
-- 🌐 **Cross-Lingual Generalization**: enables robust transfer across American Sign Language (ASL), German Sign Language (DGS), and Indian Sign Language (ISL).
-- ⚡ **Low-Resource Robustness**: superior zero-shot and few-shot ISL performance.
+  ❗ **Signer Bias Unlearning**: minimizes signer-dependent overfitting through adversarial forgetting.
+  🌐 **Cross-Lingual Generalization**: enables robust transfer across American Sign Language (ASL), German Sign Language (DGS), and Indian Sign Language (ISL).
+  ⚡ **Low-Resource Robustness**: superior zero-shot and few-shot ISL performance.
 
 ---
 
