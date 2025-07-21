@@ -1,5 +1,5 @@
 
-# UniSign-Prompt: Signer Bias Unlearning via Multimodal Prompt Tuning for Cross-Lingual Sign Language Translation
+# UniSign-Prompt: Signer Bias Unlearning and Multimodal Prompt Tuning for Cross-Lingual Sign Language Translation
 
 UniSign-Prompt introduces a novel architecture for continuous sign language translation (SLT), designed to mitigate signer bias and improve cross-lingual generalization. The model integrates Prompt-Injected Sign Transformer (PI-ST+), Hierarchical Cross-Lingual Prompt Bank (H-CLPB), Temporal-Aware Prompt Injection (TAP), Prompt Routing Mechanism (PRM), and Prompt Forgetting Module (PFM).
 
