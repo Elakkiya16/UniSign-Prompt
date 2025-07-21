@@ -16,22 +16,21 @@
 ---
 
 ## 🎁 **Key Highlights**
+📌 **Multimodal Prompt Tuning** using **Prompt-Injected Sign Transformer Plus (PI-ST+)**, **Hierarchical Cross-Lingual Prompt Bank (H-CLPB)**, **Temporal-Aware Prompt Injection (TAP)**, and **Prompt Routing Mechanism (PRM)** to condition on signer identity, language family, and temporal segments.
 
-📌 **Multimodal Prompt Tuning** using **PI-ST+**, **H-CLPB**, **TAP**, and **PRM** to condition on signer identity, language family, and temporal segments.
+📌 **Explicit Signer Bias Unlearning** via **Prompt Forgetting Module (PFM)** with adversarial forgetting and decorrelation on signer prompts.
 
-📌 **Explicit Signer Bias Unlearning** via **Prompt Forgetting Module (PFM)** applying adversarial forgetting and decorrelation on signer prompts.
+📌 **Cross-Lingual Generalization** through **H-CLPB**, enabling scalable transfer to low-resource languages including ISL zero-shot and few-shot scenarios.
 
-📌 **Cross-Lingual Transfer Objective** with **H-CLPB**, enabling scalable alignment across structurally divergent sign languages.
+📌 **Temporal-Aware Prompt Adaptation** via **TAP** for long sign sequences, segment-wise adaptation.
 
-📌 **Temporal-Aware Prompt Adaptation** using **TAP** to handle long sign sequences via temporally adaptive prompts.
+📌 **Dynamic Prompt Selection** via **PRM** with Gumbel-softmax routing, reducing inference overhead.
 
-📌 **Dynamic Prompt Selection** via **PRM**, reducing inference overhead through Gumbel-softmax-based routing.
+📌 **Dual-Branch Decoder** producing both **gloss** and **spoken language text** outputs.
 
-📌 **Dual-Branch Decoder** outputs **gloss** and **text** sequences.
+📌 **Multi-Objective Forgetting (MOF) Loss** jointly optimizing translation accuracy, signer forgetting, cross-lingual alignment, prompt sparsity, and temporal smoothness.
 
-📌 **Multi-Objective Forgetting Loss (MOF Loss)** optimizing translation, forgetting, alignment, sparsity, and smoothness.
-
-📌 **Consistent Outperformance** on ASL (How2Sign), DGS (RWTH-PHOENIX14T), and ISL (ISL-CSLTR).
+📌 **State-of-the-Art (SOTA) Results** on ASL (How2Sign), DGS (RWTH-PHOENIX14T), and ISL (ISL-CSLTR).
 
 ---
 
