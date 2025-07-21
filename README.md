@@ -6,6 +6,7 @@
 ## Overview
 
 **UniSign-Prompt** proposes a novel **prompt-injected architecture** for **continuous sign language translation (SLT)** focused on:
+
 ❗ **Signer Bias Unlearning**: minimizes signer-dependent overfitting through adversarial forgetting.
 
 🌐 **Cross-Lingual Generalization**: enables robust transfer across American Sign Language (ASL), German Sign Language (DGS), and Indian Sign Language (ISL).
@@ -18,19 +19,19 @@
 
 📌 **Multimodal Prompt Tuning** using **PI-ST+**, **H-CLPB**, **TAP**, and **PRM** to condition on signer identity, language family, and temporal segments.
 
-✅ **Explicit Signer Bias Unlearning** via **Prompt Forgetting Module (PFM)** applying adversarial forgetting and decorrelation on signer prompts.
+📌 **Explicit Signer Bias Unlearning** via **Prompt Forgetting Module (PFM)** applying adversarial forgetting and decorrelation on signer prompts.
 
-✅ **Cross-Lingual Transfer Objective** with **H-CLPB**, enabling scalable alignment across structurally divergent sign languages.
+📌 **Cross-Lingual Transfer Objective** with **H-CLPB**, enabling scalable alignment across structurally divergent sign languages.
 
-✅ **Temporal-Aware Prompt Adaptation** using **TAP** to handle long sign sequences via temporally adaptive prompts.
+📌 **Temporal-Aware Prompt Adaptation** using **TAP** to handle long sign sequences via temporally adaptive prompts.
 
-✅ **Dynamic Prompt Selection** via **PRM**, reducing inference overhead through Gumbel-softmax-based routing.
+📌 **Dynamic Prompt Selection** via **PRM**, reducing inference overhead through Gumbel-softmax-based routing.
 
-✅ **Dual-Branch Decoder** outputs **gloss** and **text** sequences.
+📌 **Dual-Branch Decoder** outputs **gloss** and **text** sequences.
 
-✅ **Multi-Objective Forgetting Loss (MOF Loss)** optimizing translation, forgetting, alignment, sparsity, and smoothness.
+📌 **Multi-Objective Forgetting Loss (MOF Loss)** optimizing translation, forgetting, alignment, sparsity, and smoothness.
 
-✅ **Consistent Outperformance** on ASL (How2Sign), DGS (RWTH-PHOENIX14T), and ISL (ISL-CSLTR).
+📌 **Consistent Outperformance** on ASL (How2Sign), DGS (RWTH-PHOENIX14T), and ISL (ISL-CSLTR).
 
 ---
 
