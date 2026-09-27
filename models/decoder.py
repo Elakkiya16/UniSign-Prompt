@@ -1,60 +1,78 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from .prompt_injected_sign_transformer import positions
+
+class AutoregressiveBranch(nn.Module):
+    def __init__(self, dim, vocabulary, heads, layers, pad_id):
+        super().__init__()
+        self.pad_id = pad_id
+        self.embedding = nn.Embedding(vocabulary, dim, padding_idx=pad_id)
+        self.decoder = nn.TransformerDecoder(nn.TransformerDecoderLayer(dim, heads,
+            dim_feedforward=4*dim, dropout=.1, batch_first=True), layers)
+        self.output = nn.Linear(dim, vocabulary)
+    def forward(self, tokens, memory, memory_mask=None):
+        x = self.embedding(tokens)
+        x = x + positions(x.size(1), x.size(2), x.device, x.dtype)[None]
+        causal = torch.ones(x.size(1), x.size(1), device=x.device, dtype=torch.bool).triu(1)
+        hidden = self.decoder(x, memory, tgt_mask=causal,
+            tgt_key_padding_mask=tokens.eq(self.pad_id), memory_key_padding_mask=memory_mask)
+        return self.output(hidden)
+
+    @torch.no_grad()
+    def generate(self, memory, memory_mask, bos_id, eos_id, max_length, beam_size):
+        results = []
+        for sample in range(memory.size(0)):
+            mem, mask = memory[sample:sample+1], memory_mask[sample:sample+1]
+            beams = [([bos_id], 0.0)]
+            for _ in range(max_length):
+                candidates = []
+                for sequence, score in beams:
+                    if sequence[-1] == eos_id:
+                        candidates.append((sequence, score))
+                        continue
+                    tokens = torch.tensor([sequence], device=mem.device)
+                    probabilities = self(tokens, mem, mask)[0, -1].log_softmax(-1)
+                    probabilities[self.pad_id] = -torch.inf
+                    probabilities[bos_id] = -torch.inf
+                    values, indices = probabilities.topk(min(beam_size, probabilities.numel()-2))
+                    candidates.extend((sequence + [int(i)], score + float(v)) for v, i in zip(values, indices))
+                beams = sorted(candidates, key=lambda pair: pair[1], reverse=True)[:beam_size]
+                if all(seq[-1] == eos_id for seq, _ in beams):
+                    break
+            results.append(beams[0][0][1:])
+        output = torch.full((len(results), max(map(len, results))), self.pad_id, device=memory.device, dtype=torch.long)
+        for i, result in enumerate(results):
+            output[i, :len(result)] = torch.tensor(result, device=memory.device)
+        return output
 
 class GlossTextDecoder(nn.Module):
-    """
-    GlossTextDecoder with dual-branch structure:
-    - Gloss branch for sign gloss prediction
-    - Text branch for natural language translation
-    """
-    def __init__(self, feature_dim, gloss_vocab_size, text_vocab_size, hidden_dim=512, num_layers=2, dropout=0.1):
-        super(GlossTextDecoder, self).__init__()
+    """Causal token decoders; predicted gloss distributions condition text."""
+    def __init__(self, feature_dim, gloss_vocab_size, text_vocab_size,
+                 num_heads=12, num_layers=2, pad_id=0, use_gloss=True):
+        super().__init__()
+        self.use_gloss, self.pad_id = use_gloss, pad_id
+        self.text_branch = AutoregressiveBranch(feature_dim, text_vocab_size, num_heads, num_layers, pad_id)
+        self.gloss_branch = AutoregressiveBranch(feature_dim, gloss_vocab_size, num_heads, num_layers, pad_id) if use_gloss else None
 
-        # Shared input projection
-        self.input_proj = nn.Linear(feature_dim, hidden_dim)
+    def forward(self, memory, gloss_targets=None, text_targets=None, memory_mask=None):
+        gloss_logits = None
+        if self.use_gloss:
+            if gloss_targets is None:
+                raise ValueError("Gloss decoder inputs are required for supervised forward; use generate for inference")
+            gloss_logits = self.gloss_branch(gloss_targets, memory, memory_mask)
+            auxiliary = gloss_logits.softmax(-1) @ self.gloss_branch.embedding.weight
+            memory = torch.cat([memory, auxiliary], 1)
+            memory_mask = torch.cat([memory_mask, gloss_targets.eq(self.pad_id)], 1)
+        if text_targets is None:
+            raise ValueError("Shifted text inputs required; use generate for inference")
+        return gloss_logits, self.text_branch(text_targets, memory, memory_mask)
 
-        # Gloss Decoder
-        self.gloss_decoder = nn.TransformerDecoder(
-            nn.TransformerDecoderLayer(d_model=hidden_dim, nhead=8, dropout=dropout),
-            num_layers=num_layers
-        )
-        self.gloss_out = nn.Linear(hidden_dim, gloss_vocab_size)
-
-        # Text Decoder
-        self.text_decoder = nn.TransformerDecoder(
-            nn.TransformerDecoderLayer(d_model=hidden_dim, nhead=8, dropout=dropout),
-            num_layers=num_layers
-        )
-        self.text_out = nn.Linear(hidden_dim, text_vocab_size)
-
-    def forward(self, encoded_feats, gloss_targets=None, text_targets=None):
-        """
-        Args:
-            encoded_feats: Tensor [B, T, D]
-            gloss_targets: Optional Tensor [B, T'] for gloss decoder (teacher forcing)
-            text_targets: Optional Tensor [B, T'] for text decoder (teacher forcing)
-        """
-        memory = self.input_proj(encoded_feats).permute(1, 0, 2)  # [T, B, H]
-
-        # Gloss Decoder
-        if gloss_targets is not None:
-            gloss_tgt_embed = F.one_hot(gloss_targets, num_classes=self.gloss_out.out_features).float()
-            gloss_tgt_embed = gloss_tgt_embed.permute(1, 0, 2)
-        else:
-            gloss_tgt_embed = torch.zeros((1, memory.size(1), memory.size(2)), device=memory.device)
-
-        gloss_output = self.gloss_decoder(gloss_tgt_embed, memory)
-        gloss_logits = self.gloss_out(gloss_output.permute(1, 0, 2))
-
-        # Text Decoder
-        if text_targets is not None:
-            text_tgt_embed = F.one_hot(text_targets, num_classes=self.text_out.out_features).float()
-            text_tgt_embed = text_tgt_embed.permute(1, 0, 2)
-        else:
-            text_tgt_embed = torch.zeros((1, memory.size(1), memory.size(2)), device=memory.device)
-
-        text_output = self.text_decoder(text_tgt_embed, memory)
-        text_logits = self.text_out(text_output.permute(1, 0, 2))
-
-        return gloss_logits, text_logits
+    @torch.no_grad()
+    def generate(self, memory, memory_mask, bos_id=1, eos_id=2, max_length=64, beam_size=5):
+        gloss = None
+        if self.use_gloss:
+            gloss = self.gloss_branch.generate(memory, memory_mask, bos_id, eos_id, max_length, beam_size)
+            memory = torch.cat([memory, self.gloss_branch.embedding(gloss)], 1)
+            memory_mask = torch.cat([memory_mask, gloss.eq(self.pad_id)], 1)
+        text = self.text_branch.generate(memory, memory_mask, bos_id, eos_id, max_length, beam_size)
+        return gloss, text

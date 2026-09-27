@@ -1,23 +1,23 @@
 # Vocabulary sizes must include reserved tokens and match your prepared artifacts.
 # CSL gloss size, patch size, decoder depth and gamma are implementation defaults; see alignment notes.
 data:
-  name: How2Sign
-  language: ASL
+  name: CSL-Daily
+  language: CSL
   root: datasets
   fps: 25
   resolution: 224
-  train_meta: datasets/how2sign_train_meta.csv
-  val_meta: datasets/how2sign_val_meta.csv
-  test_meta: datasets/how2sign_test_meta.csv
-  text_tokenizer: datasets/shared_english_bpe.json
-  gloss_vocab: null
+  train_meta: datasets/csl_daily_train_meta.csv
+  val_meta: datasets/csl_daily_val_meta.csv
+  test_meta: datasets/csl_daily_test_meta.csv
+  text_tokenizer: datasets/csl_bpe.json
+  gloss_vocab: datasets/csl_daily_gloss_vocab.txt
 model:
   visual_dim: 1024
   prompt_dim: 768
   hidden_dim: 768
   num_layers: 12
   num_heads: 12
-  num_signers: 0
+  num_signers: 10
   num_languages: 4
   family_prompt_count: 12
   signer_prompt_count: 8
@@ -27,8 +27,8 @@ model:
   beta: 0.1
   gamma: 0.1
   decoder_layers: 2
-  use_gloss: false
-  gloss_vocab_size: 4
+  use_gloss: true
+  gloss_vocab_size: 2000
   text_vocab_size: 5000
   pad_id: 0
   bos_id: 1
@@ -36,12 +36,12 @@ model:
   max_seq_length: 64
   patch_size: 16
 loss:
-  lambda_forget: 0.0
+  lambda_forget: 1.0
   lambda_align: 0.3
   lambda_route: 0.1
   lambda_prompt: 0.1
   lambda_temp: 0.1
-  lambda_gloss: 0.0
+  lambda_gloss: 1.0
 training:
   batch_size: 32
   epochs: 50
@@ -50,4 +50,4 @@ training:
   grad_clip_norm: 1.0
   num_workers: 0
   backbone_checkpoint: null
-  output_dir: checkpoints/how2sign
+  output_dir: checkpoints/csl_daily

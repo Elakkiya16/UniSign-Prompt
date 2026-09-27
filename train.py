@@ -1,107 +1,76 @@
+import argparse
+import json
+from pathlib import Path
 import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-from nltk.translate.bleu_score import corpus_bleu
-from jiwer import wer
-
 from models import UniSignPrompt
-from losses.multi_objective_forgetting_loss import MultiObjectiveForgettingLoss
-from datasets.how2sign_dataset import How2SignDataset
-from datasets.rwth_phoenix_dataset import RWTHPhoenixDataset
-from datasets.isl_csltr_dataset import ISLCSLTRDataset
+from losses import MultiObjectiveForgettingLoss
+from runtime import load_config, seed_everything, device_for, make_loader, move_batch, model_forward, validate_vocabularies
+from evaluate_extended import evaluate
 
-# ---------------------- Config ---------------------- #
-DATASET = "How2Sign"  # Change to RWTH-PHOENIX14T or ISL-CSLTR as needed
-DATA_PATH = "datasets/"
-BATCH_SIZE = 32
-NUM_EPOCHS = 50
-LR = 2e-4
-DEVICE = torch.device("cuda")
-LOG_DIR = "runs/UniSignPrompt/"
-CHECKPOINT = "checkpoints/UnisignPrompt_best.pth"
+def main():
+    parser = argparse.ArgumentParser(description='Manuscript-aligned prompt tuning with a frozen encoder')
+    parser.add_argument('--config',required=True)
+    parser.add_argument('--device',default='auto')
+    parser.add_argument('--seed',type=int,default=42)
+    parser.add_argument('--train-split',default='train')
+    parser.add_argument('--val-split',default='val')
+    parser.add_argument('--init-checkpoint',help='Full model initialization for transfer; target config controls supervision')
+    args = parser.parse_args()
+    config = load_config(args.config)
+    validate_vocabularies(config)
+    seed_everything(args.seed)
+    device = device_for(args.device)
+    model = UniSignPrompt(**config['model']).to(device)
+    if args.init_checkpoint:
+        checkpoint = torch.load(args.init_checkpoint,map_location='cpu',weights_only=True)
+        source = checkpoint['model']
+        target = model.state_dict()
+        # Supervision-specific heads and signer embeddings may differ across languages.
+        excluded = ('pfm.', 'clpb.signer_embed.', 'decoder.gloss_branch.')
+        transferable = {k:v for k,v in source.items() if not k.startswith(excluded)}
+        for key,value in transferable.items():
+            if key not in target or value.shape != target[key].shape:
+                raise ValueError(f"Incompatible transfer parameter {key}; ASL/ISL require a shared tokenizer and architecture")
+        model.load_state_dict(transferable,strict=False)
+    elif config['training'].get('backbone_checkpoint'):
+        model.load_backbone(config['training']['backbone_checkpoint'])
+    else:
+        raise ValueError('Set training.backbone_checkpoint or supply --init-checkpoint')
+    train_loader = make_loader(config,args.train_split,training=True)
+    validation = make_loader(config,args.val_split)
+    criterion = MultiObjectiveForgettingLoss(**config['loss'],pad_id=config['model'].get('pad_id',0))
+    training = config['training']
+    optimizer = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad],
+        lr=training['learning_rate'],weight_decay=training['weight_decay'])
+    steps = training['epochs']*len(train_loader)
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer,lambda step:max(0.,1-step/max(1,steps)))
+    destination = Path(training['output_dir'])/f'seed_{args.seed}'
+    destination.mkdir(parents=True,exist_ok=True)
+    best, history = float('-inf'), []
+    for epoch in range(training['epochs']):
+        model.train()
+        total = 0.
+        for raw in train_loader:
+            batch = move_batch(raw,device)
+            optimizer.zero_grad(set_to_none=True)
+            output = model_forward(model,batch)
+            losses = criterion(output,batch['text'][:,1:],batch['gloss'][:,1:] if batch['gloss'] is not None else None)
+            losses['total_loss'].backward()
+            torch.nn.utils.clip_grad_norm_([p for p in model.parameters() if p.requires_grad],training['grad_clip_norm'])
+            optimizer.step()
+            scheduler.step()
+            total += float(losses['total_loss'].detach())
+        scores,_ = evaluate(model,validation,config,device,beam_size=5,include_meteor=False)
+        record = {'epoch':epoch+1,'train_loss':total/len(train_loader),'validation':scores}
+        history.append(record)
+        print(json.dumps(record),flush=True)
+        state = {'model':model.state_dict(),'optimizer':optimizer.state_dict(),'scheduler':scheduler.state_dict(),
+                 'config':config,'seed':args.seed,'epoch':epoch+1}
+        torch.save(state,destination/'last.pt')
+        if scores['BLEU-4'] > best:
+            best = scores['BLEU-4']
+            torch.save(state,destination/'best.pt')
+        (destination/'history.json').write_text(json.dumps(history,indent=2))
 
-# ---------------------- Dataset ---------------------- #
-if DATASET == "How2Sign":
-    train_set = How2SignDataset(DATA_PATH, split="train")
-    val_set = How2SignDataset(DATA_PATH, split="val")
-elif DATASET == "RWTH-PHOENIX14T":
-    train_set = RWTHPhoenixDataset(DATA_PATH, split="train")
-    val_set = RWTHPhoenixDataset(DATA_PATH, split="val")
-elif DATASET == "ISL-CSLTR":
-    train_set = ISLCSLTRDataset(DATA_PATH, split="train")
-    val_set = ISLCSLTRDataset(DATA_PATH, split="val")
-else:
-    raise NotImplementedError("Dataset not implemented")
-
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
-val_loader = DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=False, num_workers=4)
-
-# ---------------------- Model + Optimizer ---------------------- #
-model = UniSignPrompt().to(DEVICE)
-criterion = MultiObjectiveForgettingLoss()
-optimizer = optim.AdamW(model.parameters(), lr=LR)
-writer = SummaryWriter(LOG_DIR)
-
-best_bleu4 = 0
-
-# ---------------------- Training Loop ---------------------- #
-for epoch in range(NUM_EPOCHS):
-    model.train()
-    total_loss = 0
-    for batch in train_loader:
-        visual = batch['visual'].to(DEVICE)
-        signer = batch['signer_onehot'].to(DEVICE)
-        language = batch['language_onehot'].to(DEVICE)
-        gloss = batch['gloss'].to(DEVICE)
-        text = batch['text'].to(DEVICE)
-
-        output = model(visual, signer, language)
-        log_probs = nn.functional.log_softmax(output['text_logits'], dim=-1)
-        loss_dict = criterion(log_probs, text, output['routing_scores'], signer.argmax(dim=1), None, None, output['routing_scores'], None, [])
-        loss = loss_dict['total_loss']
-
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-        total_loss += loss.item()
-
-    avg_loss = total_loss / len(train_loader)
-    writer.add_scalar('Train/Loss', avg_loss, epoch)
-    print(f"Epoch {epoch+1}: Train Loss={{avg_loss:.4f}}")
-
-    # ---------------------- Validation ---------------------- #
-    model.eval()
-    refs, hyps, wer_refs, wer_hyps = [], [], [], []
-    with torch.no_grad():
-        for batch in val_loader:
-            visual = batch['visual'].to(DEVICE)
-            signer = batch['signer_onehot'].to(DEVICE)
-            language = batch['language_onehot'].to(DEVICE)
-            text = batch['text'].to(DEVICE)
-
-            output = model(visual, signer, language)
-            pred_tokens = output['text_logits'].argmax(dim=-1).cpu().tolist()
-            true_tokens = text.cpu().tolist()
-
-            refs.extend([[ref] for ref in true_tokens])
-            hyps.extend(pred_tokens)
-            wer_refs.extend([" ".join(map(str, ref)) for ref in true_tokens])
-            wer_hyps.extend([" ".join(map(str, hyp)) for hyp in pred_tokens])
-
-    bleu4 = corpus_bleu(refs, hyps, weights=(0.25, 0.25, 0.25, 0.25)) * 100
-    bleu1 = corpus_bleu(refs, hyps, weights=(1, 0, 0, 0)) * 100
-    wer_score = wer(wer_refs, wer_hyps) * 100
-
-    writer.add_scalar('Val/BLEU4', bleu4, epoch)
-    writer.add_scalar('Val/BLEU1', bleu1, epoch)
-    writer.add_scalar('Val/WER', wer_score, epoch)
-    print(f"Validation BLEU4={{bleu4:.2f}}, BLEU1={{bleu1:.2f}}, WER={{wer_score:.2f}}")
-
-    if bleu4 > best_bleu4:
-        torch.save(model.state_dict(), CHECKPOINT)
-        best_bleu4 = bleu4
-        print(f"Checkpoint saved at Epoch {{epoch+1}}")
-
-writer.close()
+if __name__ == '__main__':
+    main()

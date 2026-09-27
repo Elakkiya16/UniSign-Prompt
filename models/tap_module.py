@@ -65,10 +65,10 @@ class TemporalAwarePromptInjection(nn.Module):
         Returns:
             Scalar smoothness loss
         """
-        loss = 0.0
+        loss = prompts[0].new_zeros(())
         for s in range(self.num_segments - 1):
             norm_p_s = F.normalize(prompts[s], dim=-1)
             norm_p_next = F.normalize(prompts[s + 1], dim=-1)
-            loss += torch.norm(norm_p_s - norm_p_next, dim=-1).pow(2).mean()
+            loss += (norm_p_s - norm_p_next).square().sum(dim=(-1, -2)).mean()
 
-        return loss / (self.num_segments - 1)
+        return loss

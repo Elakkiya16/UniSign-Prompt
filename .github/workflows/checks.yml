@@ -1,0 +1,15 @@
+name: Source checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m compileall -q models losses datasets tools train.py runtime.py metrics.py evaluate_extended.py evaluate_leakage.py evaluate_membership.py export_membership_losses.py

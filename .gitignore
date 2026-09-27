@@ -1,0 +1,9 @@
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+checkpoints/
+results/
+datasets/videos/
+datasets/text_tokens/
+datasets/gloss_tokens/

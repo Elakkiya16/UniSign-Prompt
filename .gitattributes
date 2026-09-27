@@ -1,0 +1,4 @@
+# Store supplied large dataset archives and checkpoint through Git LFS.
+datasets/*.zip filter=lfs diff=lfs merge=lfs -text
+datasets/fsl_chunk_* filter=lfs diff=lfs merge=lfs -text
+datasets/*.pth filter=lfs diff=lfs merge=lfs -text
