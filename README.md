@@ -1,92 +1,182 @@
-# UniSign-Prompt
+# 🚀 **UniSign-Prompt: Prompt-Space Signer Unlearning with Parameter-Efficient Cross-Lingual Sign Language Translation**
 
-**Prompt-Space Signer Unlearning with Parameter-Efficient Cross-Lingual Sign Language Translation**
+------------------------------------------------------------------------
 
-UniSign-Prompt combines a frozen visual encoder with language-conditioned prompts, temporal prompting, sparse video-conditioned routing, and prompt-space signer unlearning. Signer-adaptive prompts are used during annotated training and disabled at inference.
+## Overview
 
-## Architecture
+**UniSign-Prompt** proposes a novel **prompt-injected architecture** for
+**continuous sign language translation (SLT)** focused on:
 
-![UniSign-Prompt overview](docs/Figure_1.png)
+❗ **Prompt-Space Signer Unlearning**: adversarially suppresses
+signer-identifiable information in the prompt-conditioned adaptation
+pathway while preserving translation performance.
 
-![Figure 2: UniSign-Prompt architecture](docs/Figure_2.png)
+🌐 **Cross-Lingual Generalization**: enables robust transfer across
+American Sign Language (ASL), German Sign Language (DGS), Indian Sign
+Language (ISL), and Chinese Sign Language (CSL).
 
-The model includes PI-ST+, a Hierarchical Cross-Lingual Prompt Bank, Temporal-Aware Prompt Injection, a Prompt Routing Mechanism, a Prompt Forgetting Module, and a dual gloss/text decoder. The multi-objective loss combines translation, forgetting, alignment, routing entropy, prompt regularization, and temporal smoothness.
+⚡ **Low-Resource Robustness**: superior zero-shot and few-shot ISL
+performance.
 
-## Setup
+------------------------------------------------------------------------
 
-Use Python 3.10–3.12:
+## 🎁 **Key Highlights**
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
+📌 **Multimodal Prompt Tuning** using **Prompt-Injected Sign Transformer
+Plus (PI-ST+)**, **Hierarchical Cross-Lingual Prompt Bank (H-CLPB)**,
+**Temporal-Aware Prompt Injection (TAP)**, and **Prompt Routing
+Mechanism (PRM)** for parameter-efficient cross-lingual adaptation.
+
+📌 **Prompt-Space Signer Unlearning** via **Prompt Forgetting Module
+(PFM)** with adversarial forgetting and decorrelation, while
+signer-adaptive prompts are disabled at inference.
+
+📌 **Cross-Lingual Generalization** through **H-CLPB**, enabling
+scalable transfer across ASL, DGS, ISL, and CSL.
+
+📌 **Temporal-Aware Prompt Adaptation** via **TAP** for long sign
+sequences, segment-wise adaptation.
+
+📌 **Dynamic Prompt Selection** via **PRM** with Gumbel-softmax routing,
+reducing inference overhead.
+
+📌 **Dual-Branch Decoder** producing both **gloss** and **spoken
+language text** outputs.
+
+📌 **Multi-Objective Forgetting (MOF) Loss** jointly optimizing
+translation accuracy, signer forgetting, cross-lingual alignment, prompt
+sparsity, and temporal smoothness.
+
+📌 **Unlearning Evaluation** using post-hoc signer classification,
+membership-inference attack (MIA), and gold-standard retraining.
+
+📌 **Consistent Results** on ASL (How2Sign), DGS (RWTH-PHOENIX14T), ISL
+(ISL-CSLTR), and CSL (CSL-Daily).
+
+------------------------------------------------------------------------
+
+## 🖼️ **Architecture Overview**
+
+### 🔷 **Overall System Architecture**
+
+![Overview Architecture](docs/Figure_1.png)
+
+### 🟣 **Detailed Architecture with Module Breakdown**
+
+![Detailed Architecture](docs/Figure_2.png)
+
+Module references in [`models/`](models/): -
+`prompt_injected_sign_transformer.py` → **PI-ST+** (Prompt-Injected Sign
+Transformer Plus) - `hierarchical_prompt_bank.py` → **H-CLPB** -
+`tap_module.py` → **TAP** - `prompt_routing_mechanism.py` → **PRM** -
+`prompt_forgetting_module.py` → **PFM** - `decoder.py` → **Dual-Branch
+Decoder** - `unisign_prompt.py` → Overall **UniSign-Prompt** model
+integration
+
+------------------------------------------------------------------------
+
+## 📂 **Dataset Structure**
+
+Folder structure under `datasets/`:
+
+``` plaintext
+datasets/
+├── how2sign_[train/val/test]_meta.csv
+├── rwth_[train/val/test]_meta.csv
+├── isl_[train/val/test/zero_shot/few_shot_*]_meta.csv
+├── CSL-Daily-groundtruth-[train/dev/test].stm
+├── [language]_src_vocab.txt
+├── [language]_trg_vocab.txt
+├── gloss_dict.npy
+```
+
+  ------------------------------------------------------------------------------------------
+  Dataset           Language   Train/Val/Test       Signers   Gloss Vocab  Target Language
+  ----------------- ---------- -------------------- --------- ------------ -----------------
+  How2Sign          ASL        29k/3k/3k            11        --           English
+
+  RWTH-PHOENIX14T   DGS        7096/519/642         9         1066         German
+
+  ISL-CSLTR         ISL        500/100/100          7         1036         English
+
+  ISL Zero-Shot     ISL        0/100/100            7         1036         English
+
+  ISL Few-Shot      ISL        50/100/100           7         1036         English
+
+  CSL-Daily         CSL        18,401/1,077/1,176   10        2000         Chinese
+  ------------------------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+## ⚙️ **Setup**
+
+``` bash
 pip install -r requirements.txt
 ```
 
-For METEOR evaluation:
+Training:
 
-```bash
-python -m nltk.downloader wordnet omw-1.4
+``` bash
+python train.py --dataset How2Sign
 ```
 
-## Datasets
+Evaluation:
 
-| Dataset | Translation | Config |
-|---|---|---|
-| How2Sign | ASL → English | `configs/how2sign_config.yaml` |
-| RWTH-PHOENIX14T | DGS → German | `configs/rwth_phoenix14t_config.yaml` |
-| ISL-CSLTR | ISL → English | `configs/isl_csltr_config.yaml` |
-| CSL-Daily | CSL → Chinese | `configs/csl_daily_config.yaml` |
-
-The `datasets/` directory includes the supplied updated metadata, CSL train/dev/test STM annotations, gloss dictionary, frame archives, archive chunks and ViT checkpoint. See [dataset files and formats](datasets/README.md).
-
-Configure manifest paths, tokenizers, vocabulary sizes and pretrained backbone weights in the relevant YAML file. Token arrays use `PAD=0`, `BOS=1`, and `EOS=2`. English uses a shared How2Sign/ISL BPE tokenizer; German and Chinese use separate tokenizers. How2Sign uses text supervision without gloss or signer labels.
-
-```bash
-python tools/train_bpe.py --corpora /data/how2sign_train.txt /data/isl_train.txt \
-  --output datasets/shared_english_bpe.json --vocab-size 5000
-python tools/tokenize_text.py --csv /data/train_transcripts.csv \
-  --tokenizer datasets/shared_english_bpe.json --output-dir datasets/text_tokens
+``` bash
+python evaluate_extended.py --dataset ISL-CSLTR --split zero_shot --checkpoint checkpoints/ISL-CSLTR_UniSignPrompt_best.pth
 ```
 
-## Training
+------------------------------------------------------------------------
 
-Set `training.backbone_checkpoint` to compatible pretrained PI-ST+ weights, or use `--init-checkpoint` for transfer initialization.
+## 🏆 **Results Summary**
 
-```bash
-python train.py --config configs/rwth_phoenix14t_config.yaml --seed 42
+### 🔵 **Translation Quality (BLEU-4 ↑, WER/Text-WER ↓)**
+
+  Dataset         BLEU-4 ↑   WER/Text-WER ↓
+  --------------- ---------- ----------------
+  ASL             23.0       38.4
+  DGS             22.3       37.4
+  ISL Zero-Shot   14.5       46.0
+  ISL Few-Shot    17.0       43.4
+  CSL             20.9       38.8
+
+### 🟣 **Signer Bias Unlearning**
+
+  --------------------------------------------------------------------------
+  Dataset     Signer Accuracy ↓   MIA Success ↓  ΔSA ↓ ΔMIA ↓ BLEU-4 Gap ↓
+  ----------- ------------------- -------------- ----- ------ --------------
+  DGS         13.4%               52.3%          1.3   1.4    1.4
+
+  ISL         18.6%               --             --    --     1.9
+  Zero-Shot                                                   
+
+  ISL         16.7%               53.2%          1.6   2.1    1.5
+  Few-Shot                                                    
+  --------------------------------------------------------------------------
+
+### 🟢 **Efficiency**
+
+  Dataset   Params ↓   Latency ↓
+  --------- ---------- ----------------
+  ASL       49.6M      58.7 ms/sample
+  DGS       49.6M      55.2 ms/sample
+  ISL       49.6M      53.8 ms/sample
+  CSL       49.6M      56.4 ms/sample
+
+------------------------------------------------------------------------
+
+## 📜 **Citation**
+
+``` bibtex
+@article{unisignprompt2026,
+  title={UniSign-Prompt: Prompt-Space Signer Unlearning with Parameter-Efficient Cross-Lingual Sign Language Translation},
+  author={Elakkiya R},
+  year={2026}
+}
 ```
 
-Training uses AdamW, linear learning-rate decay, gradient clipping and validation BLEU-4 checkpoint selection. The encoder stays frozen. Model flags `use_pfm`, `use_tap`, `use_routing` and `use_hclpb` control component ablations. Loss coefficients are configured in YAML.
+------------------------------------------------------------------------
 
-## Evaluation
+## 📝 **License**
 
-```bash
-python evaluate_extended.py --checkpoint checkpoints/rwth/seed_42/best.pt \
-  --split test --output results/rwth_seed42.json
-python evaluate_leakage.py --checkpoint checkpoints/rwth/seed_42/best.pt \
-  --output results/rwth_signer.json
-```
-
-Translation uses beam size 5 without signer metadata. Outputs include BLEU-1/2/3/4, METEOR, ROUGE-L, Gloss-WER or Text-WER, parameter counts, model latency and prompt activation ratio. The independent signer probe uses pooled deployment features.
-
-```bash
-python tools/compare_results.py results/ours.json results/baseline.json --resamples 1000
-python tools/summarize_seeds.py results/seed42.json results/seed43.json results/seed44.json
-```
-
-Membership analysis is available through `export_membership_losses.py` and `evaluate_membership.py`. It uses a loss-threshold attack fitted on a separate calibration split. `tools/retain_split.py` prepares retained-training manifests; `tools/retraining_gap.py` reports measured ΔSA and ΔMIA.
-
-See [implementation details](docs/MANUSCRIPT_ALIGNMENT.md) for the backbone checkpoint format and module definitions.
-
-## Adding the data to Git
-
-Large dataset files use Git LFS via the included `.gitattributes`. In your Git checkout, enable LFS before staging the updated files:
-
-```bash
-git lfs install
-git add .gitattributes datasets docs README.md
-```
-
-## License
-
-[MIT License](LICENSE.md).
+MIT License
